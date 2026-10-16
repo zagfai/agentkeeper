@@ -74,7 +74,9 @@ if [ "$(id -u)" = "0" ]; then
 elif [ -d "$BINDIR" ] && [ -w "$BINDIR" ]; then
   install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"
 elif command -v sudo >/dev/null 2>&1; then
-  sudo mkdir -p "$BINDIR" && sudo install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"
+  if ! { sudo mkdir -p "$BINDIR" && sudo install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"; }; then
+    die "failed to install into $BINDIR (sudo failed); rerun as root, or set AGENTKEEPER_BINDIR=\$HOME/.local/bin"
+  fi
 else
   BINDIR="$HOME/.local/bin"
   mkdir -p "$BINDIR"
