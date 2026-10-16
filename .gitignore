@@ -1,0 +1,15 @@
+# 构建产物
+/agentkeeper
+/dist/
+
+# 运行产物
+/recordings/
+/test/rec/
+*.log
+
+# 测试生成物
+/test/kh_scan
+/test/kh_wrong
+/test/wrongkey
+/test/wrongkey.pub
+__pycache__/

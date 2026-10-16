@@ -1,0 +1,128 @@
+# ============================================================================
+# agentkeeper —— 简易 SSH 堡垒机 · 示例配置
+#
+# 它做什么：客户端用标准 ssh 连到这里；堡垒核验「门票公钥 + 动态码」后，
+#           以指定的远端用户名连到目标机；全程录像 + 命令时间线 + 危险命令减速提醒。
+#
+# 连接格式（用户名三段固定顺序：远端用户名 → 目标 → 6 位动态码）：
+#   ssh -p2222 -i 门票 '远端用户名+目标+动态码'@堡垒 '命令'
+#   例：ssh -p2222 -i ticket 'root+10.0.0.5+123456'@<堡垒IP> 'uptime'
+#   （目标写 host[:port]；交互式加 -t；rsync/scp/sftp 用户名同款，码不弹提示）
+#
+# 三把钥匙的分工（互不相干）：
+#   ① users[].keys   门票公钥 —— 客户端持私钥，证明"我是被允许的客户端"
+#   ② host_key       堡垒身份 —— 客户端持其公钥核对"对面是真堡垒"（防冒充，勿删勿换）
+#   ③ default_key    连出私钥 —— 堡垒持私钥登录目标机（生产机密钥只在堡垒本机使用）
+#
+# 本文件所有相对路径都相对本文件所在目录。部署步骤与细节见 README.md。
+# 文件中的公钥/密钥均为示例值，使用前请全部替换（见每处注释）。
+# ============================================================================
+
+# ---- 监听与堡垒身份 --------------------------------------------------------
+
+listen: "0.0.0.0:2222"         # 监听地址：务必用防火墙限制来源（只放客户端网段）
+# 堡垒的"身份证"密钥（一对：host_ed25519 私钥 + host_ed25519.pub 公钥）。
+# 与 OpenSSH 的 /etc/ssh/ssh_host_*_key 同类；服务器必需（缺了起不来）。
+# 生成：ssh-keygen -t ed25519 -N '' -f host_ed25519 -C agentkeeper-host
+# 勿删勿换——换了客户端要重新固定指纹。
+host_key: "host_ed25519"
+
+# ---- 身份表：谁能连、怎么验 ------------------------------------------------
+# users 是唯一的登录凭据清单。每条 = 一个名字（仅日志/绑定显示用）+ 「公钥 ↔ TOTP」配对：
+#   · 认证只看公钥——连接用户名不参与认证（第一段的"远端用户名"随意填，是否存在由目标机决定）；
+#   · 连上后核验动态码：必须与该条目的 totp_secret 吻合（码写在用户名第三段）；
+#   · 多身份就多加一条（可各配各的公钥与 TOTP）。
+
+users:
+  - name: agent                             # 身份名（日志/绑定显示用；随意改）
+    keys:
+      # 换成你的门票公钥（ssh-keygen -t ed25519 生成；私钥留在客户端）
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICk2dUtxJepB7IW2+IBGPj3uCvc3uaxKp2w5vSHI6ass my-ticket"
+    totp_secret: "3UTBBON26JO6J433BQ7Y2PSQS4TRCRKT"   # 换成你的（./agentkeeper gen-secret）
+
+# ---- 连出：堡垒 → 目标机怎么连 ---------------------------------------------
+
+keys_dir: "keys"               # 连出私钥目录（放目标机私钥；建议权限 600）
+default_key: "keys/default"    # 连出私钥路径（放成 keys/default，或改此处指向别的文件）
+known_hosts: ""                # 目标机主机密钥校验：留空=不校验（连接时打日志）；指向文件则启用
+proxy: ""                      # 出口代理（可选）：socks5://[user:pass@]host:port；留空=直连
+                               # （配置后：命令/交互/rsync/scp/sftp 的全部出站都走代理）
+
+# ---- 录像落盘 --------------------------------------------------------------
+
+recordings_dir: "recordings"   # 每会话四件套（.cast 回放/.in.raw/.cmd.log/.meta.json）+ sessions.jsonl 索引
+
+# ---- TOTP 动态口令（统一启用）----------------------------------------------
+# mode：all=所有连接都要码（默认，正式用）| patterns=按目标名匹配 | off=调试用关掉
+# 有效期：当前窗 + 前 10 窗（约 5 分钟，防时钟漂移）
+
+totp:
+  mode: "all"
+  patterns: []                 # mode=patterns 时生效（按目标名匹配，如 ["10.0.0.5"]）
+
+# ---- 灰名单：危险命令减速提醒 ----------------------------------------------
+# 规则=正则（RE2 语法；单引号内 \s 等原样书写）。命中后：
+#   · 第一次不执行、只警告；连续两条完全一致（MD5 相同）的指令才算确认、放行（无时间窗）；
+#   · 匹配"原文"与"去引号/反斜杠"两种形态（对付 r''m -rf 这类拆字写法）；
+#   · 交互模式命中时给远端发 Ctrl-C 并显示警告框；本质是启发式提醒，不是安全边界；
+#   · 可自行增删；非法正则在启动/check 时报错。
+
+gray:
+  patterns:
+    # —— 磁盘 / 文件系统 ——
+    - 'mkfs'
+    - 'fdisk'
+    - 'parted'
+    - 'sgdisk'
+    - 'wipefs'
+    - 'blkdiscard'
+    - 'mkswap'
+    - 'cryptsetup'
+    - 'pvremove'
+    - 'vgremove'
+    - 'lvremove'
+    - 'mdadm'
+    - 'dd\s+if='
+    - 'dd\s+of='
+    - 'of=/dev/(sd|nvme|hd|vd|mmcblk|loop)'
+    - '>\s*/dev/(sd|nvme|hd|vd|mmcblk|disk)'
+    # —— 关机 / 重启 / 进程 ——
+    - 'shutdown'
+    - 'reboot'
+    - 'poweroff'
+    - '\bhalt\b'
+    - 'init\s+[06]'
+    - 'telinit\s+[06]'
+    - 'systemctl\s+(reboot|poweroff|halt)'
+    - 'kill\s+-9\s+-1'
+    - 'killall5'
+    # —— 删除 / 覆盖 ——
+    - 'rm\s+-[a-zA-Z]*[rR][a-zA-Z]*[fF]'
+    - 'rm\s+-[a-zA-Z]*[fF][a-zA-Z]*[rR]'
+    - 'find\s+.*-delete'
+    - 'find\s+.*-exec\s+rm'
+    - 'shred'
+    - 'truncate\s+-s\s*0'
+    - 'mv\s+.*\s+/dev/null'
+    # —— 权限 ——
+    - 'chmod\s+-R\s+777'
+    - 'chmod\s+777\s+/(\s|$)'
+    - 'chown\s+-R'
+    # —— 网络 / 防火墙 ——
+    - 'iptables\s+-F'
+    - 'nft\s+flush'
+    - 'ufw\s+disable'
+    - 'systemctl\s+(stop|disable|mask)\s+(ssh|sshd|network|networking|nftables|iptables)'
+    # —— 用户 / 认证 / 关键文件 ——
+    - 'userdel'
+    - 'groupdel'
+    - 'passwd\s+root'
+    - '>\s*/etc/(passwd|shadow|group|sudoers|fstab)'
+    - 'crontab\s+-r'
+    # —— Shell / 系统 ——
+    - ':\(\)\s*\{'               # fork bomb: :(){ :|:& };:
+    - 'history\s*\|\s*sh'
+    - 'git\s+reset\s+--hard'
+    - 'git\s+clean\s+-[a-zA-Z]*[xdf]'
+    - '(?i)drop\s+(database|table)'
+    - '(?i)flushall'

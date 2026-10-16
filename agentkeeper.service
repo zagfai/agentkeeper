@@ -1,0 +1,17 @@
+[Unit]
+Description=agentkeeper 简易 SSH 堡垒机
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/agentkeeper
+ExecStart=/opt/agentkeeper/agentkeeper -c /opt/agentkeeper/agentkeeper.yaml
+Restart=on-failure
+RestartSec=2
+# 运行身份：需能读 keys/ 下的私钥；可按需收紧为专用用户。
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

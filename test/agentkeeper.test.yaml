@@ -1,0 +1,21 @@
+listen: "127.0.0.1:2222"
+host_key: "host_ed25519_test"
+users:
+  - name: agent              # 身份名（仅日志/绑定显示用；与远端用户名无关）
+    keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFwmswMDnVxpH/LE/wvGlqahpBlJliTQ/d946FlK/5Mb ticket_test"
+    totp_secret: "DFDMV7BT72R6FC6X4WLCTKMO73WOVDZ7"
+keys_dir: "keys"
+default_key: "out_test"
+recordings_dir: "rec"
+known_hosts: ""
+proxy: ""
+totp:
+  mode: "off"                # 测试坐标：单测按需切 all/patterns
+  patterns: ["127.0.0.1"]
+gray:
+  patterns:
+    - "rm -rf"
+    - "of=/dev/"
+    - "mkfs"
+    - "(chmod|chown)\\s+-R"
