@@ -9,9 +9,17 @@ WorkingDirectory=/opt/agentkeeper
 ExecStart=/opt/agentkeeper/agentkeeper -c /opt/agentkeeper/agentkeeper.yaml
 Restart=on-failure
 RestartSec=2
-# 运行身份：需能读 keys/ 下的私钥；可按需收紧为专用用户。
-User=root
-Group=root
+# 专用系统用户运行（非 root）。首次部署时创建并移交目录：
+#   sudo useradd --system --user-group --home-dir /opt/agentkeeper --shell /usr/sbin/nologin agentkeeper
+#   sudo chown -R agentkeeper:agentkeeper /opt/agentkeeper
+User=agentkeeper
+Group=agentkeeper
+
+# 基本加固，可按需收紧
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

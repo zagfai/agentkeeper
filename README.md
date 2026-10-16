@@ -38,7 +38,7 @@ agentkeeper is the small gate that fixes all three:
 ## Quick start
 
 ```sh
-# one-line install (Linux, latest release → /usr/local/bin)
+# one-line install (Linux; user install → ~/.local/bin, no sudo)
 curl -fsSL https://raw.githubusercontent.com/zagfai/agentkeeper/main/install.sh | sh
 
 # or build from source:

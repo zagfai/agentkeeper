@@ -38,7 +38,7 @@ agentkeeper 就是那扇小门：
 ## 快速开始
 
 ```sh
-# 一行安装（Linux，最新版 → /usr/local/bin）
+# 一行安装（Linux；普通用户装到 ~/.local/bin，免 sudo）
 curl -fsSL https://raw.githubusercontent.com/zagfai/agentkeeper/main/install.sh | sh
 
 # 或从源码构建：

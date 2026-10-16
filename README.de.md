@@ -38,7 +38,7 @@ agentkeeper ist das kleine Tor, das alle drei löst:
 ## Schnellstart
 
 ```sh
-# Ein-Zeilen-Installation (Linux, letztes Release → /usr/local/bin)
+# Ein-Zeilen-Installation (Linux; Benutzerinstallation → ~/.local/bin, ohne sudo)
 curl -fsSL https://raw.githubusercontent.com/zagfai/agentkeeper/main/install.sh | sh
 
 # oder aus dem Quellcode bauen:

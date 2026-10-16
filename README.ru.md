@@ -38,7 +38,7 @@ agentkeeper — те самые маленькие ворота, решающи�
 ## Быстрый старт
 
 ```sh
-# установка одной строкой (Linux, последний релиз → /usr/local/bin)
+# установка одной строкой (Linux; для обычного пользователя → ~/.local/bin, без sudo)
 curl -fsSL https://raw.githubusercontent.com/zagfai/agentkeeper/main/install.sh | sh
 
 # или сборка из исходников:

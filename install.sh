@@ -6,14 +6,18 @@
 # Environment overrides:
 #   AGENTKEEPER_REPO=owner/repo     GitHub repository (default: zagfai/agentkeeper)
 #   AGENTKEEPER_VERSION=vX.Y.Z      release tag to install (default: latest)
-#   AGENTKEEPER_BINDIR=/path        install directory (default: /usr/local/bin)
+#   AGENTKEEPER_BINDIR=/path        install directory (default: /usr/local/bin as root, ~/.local/bin otherwise)
 #   AGENTKEEPER_BASE_URL=url        download base URL (mirrors, or testing)
 #   AGENTKEEPER_NO_VERIFY=1         skip sha256 verification (not recommended)
 set -eu
 
 REPO="${AGENTKEEPER_REPO:-zagfai/agentkeeper}"
 VERSION="${AGENTKEEPER_VERSION:-latest}"
-BINDIR="${AGENTKEEPER_BINDIR:-/usr/local/bin}"
+if [ "$(id -u)" = "0" ]; then
+  BINDIR="${AGENTKEEPER_BINDIR:-/usr/local/bin}"
+else
+  BINDIR="${AGENTKEEPER_BINDIR:-$HOME/.local/bin}"
+fi
 BASEURL="${AGENTKEEPER_BASE_URL:-}"
 
 say() { printf '%s\n' "$*"; }
@@ -68,21 +72,23 @@ else
   say "Checksum OK"
 fi
 
-if [ "$(id -u)" = "0" ]; then
-  mkdir -p "$BINDIR"
+# Install. Non-root defaults to a user-level directory (no sudo at all); root,
+# or an explicit AGENTKEEPER_BINDIR, picks the target directory directly.
+if [ -d "$BINDIR" ] && [ -w "$BINDIR" ]; then
   install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"
-elif [ -d "$BINDIR" ] && [ -w "$BINDIR" ]; then
+elif mkdir -p "$BINDIR" 2>/dev/null && [ -w "$BINDIR" ]; then
   install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"
 elif command -v sudo >/dev/null 2>&1; then
   if ! { sudo mkdir -p "$BINDIR" && sudo install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"; }; then
-    die "failed to install into $BINDIR (sudo failed); rerun as root, or set AGENTKEEPER_BINDIR=\$HOME/.local/bin"
+    die "failed to install into $BINDIR (sudo failed); rerun as root, or set AGENTKEEPER_BINDIR to a writable directory"
   fi
 else
-  BINDIR="$HOME/.local/bin"
-  mkdir -p "$BINDIR"
-  install -m 0755 "$tmp/$name" "$BINDIR/agentkeeper"
-  say "note: $BINDIR may not be in your PATH"
+  die "cannot write to $BINDIR; set AGENTKEEPER_BINDIR to a writable directory"
 fi
 
 say "Installed: $BINDIR/agentkeeper"
+case ":$PATH:" in
+  *":$BINDIR:"*) ;;
+  *) say "note: $BINDIR is not in your PATH" ;;
+esac
 say "Next: create a config (see README) and run: agentkeeper -c agentkeeper.yaml"

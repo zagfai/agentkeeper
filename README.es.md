@@ -38,7 +38,7 @@ agentkeeper es la pequeña puerta que arregla los tres problemas:
 ## Inicio rápido
 
 ```sh
-# instalación en una línea (Linux, última versión → /usr/local/bin)
+# instalación en una línea (Linux; para el usuario → ~/.local/bin, sin sudo)
 curl -fsSL https://raw.githubusercontent.com/zagfai/agentkeeper/main/install.sh | sh
 
 # o compilar desde el código fuente:
